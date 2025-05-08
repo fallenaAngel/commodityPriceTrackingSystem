@@ -1,0 +1,25 @@
+{
+  "name": "commoditypricetrackingsystem",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "concurrently \"vite\" \"node server.js\""
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "echarts": "^5.6.0",
+    "element-plus": "^2.9.9",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "file-saver": "^2.0.5",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.2",
+    "vite": "^6.3.1"
+  }
+}
