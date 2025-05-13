@@ -61,7 +61,7 @@ const productList = ref([]);
 let chartInstance = null;
 
 const saveRecord = async () => {
-  fetch('http://localhost:3000/api/add-row', {
+  fetch('/api/add-row', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productName: productName.value, priceDate: priceDate.value, productPrice: productPrice.value, storeName: storeName.value })
@@ -81,7 +81,7 @@ const saveRecord = async () => {
 };
 
 const getExistingData = async () => {
-  fetch('http://localhost:3000/api/read-excel').then(response => response.json()).then(data => {
+  fetch('/api/read-excel').then(response => response.json()).then(data => {
     data.data.forEach(v => {
       if (productList.value.some(item => item.name === v.sheetName)) return;
       productList.value.push({ name: v.sheetName, data: v.rows.map(item => [item['日期'], item['价格'], item['商店']]) })
@@ -154,7 +154,7 @@ const resizeHandler = () => {
 };
 const fetchStores = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/get-stores');
+    const response = await fetch('/api/get-stores');
     const data = await response.json();
     storeList.value = data.stores;
   } catch (error) {
