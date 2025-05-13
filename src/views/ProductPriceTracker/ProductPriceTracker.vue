@@ -23,7 +23,9 @@
           </el-form-item>
 
           <el-form-item label="商店">
-            <el-input v-model="storeName" placeholder="请输入商店名称" />
+            <el-select v-model="storeName" placeholder="请选择或输入商店" filterable allow-create>
+              <el-option v-for="(store, index) in storeList" :key="index" :label="store" :value="store" />
+            </el-select>
           </el-form-item>
 
           <el-button type="primary" @click="saveRecord">保存记录</el-button>
@@ -53,12 +55,13 @@ const productName = ref('');
 const priceDate = ref('');
 const productPrice = ref(null);
 const storeName = ref('');
+const storeList = ref([]); // 存储所有历史输入的商店名称
 const selectedProduct = ref('');  // 选择的商品
 const productList = ref([]);
 let chartInstance = null;
 
 const saveRecord = async () => {
-  fetch('/api/add-row', {
+  fetch('http://localhost:3000/api/add-row', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productName: productName.value, priceDate: priceDate.value, productPrice: productPrice.value, storeName: storeName.value })
@@ -71,15 +74,17 @@ const saveRecord = async () => {
       storeName.value = '';
       // 提示新增成功
       ElMessage.success('新增成功');
+      // 刷新商店列表
+      fetchStores();
     }
   })
 };
 
 const getExistingData = async () => {
-  fetch('/api/read-excel').then(response => response.json()).then(data => {
+  fetch('http://localhost:3000/api/read-excel').then(response => response.json()).then(data => {
     data.data.forEach(v => {
       if (productList.value.some(item => item.name === v.sheetName)) return;
-      productList.value.push({ name: v.sheetName, data: v.rows.map(item => [item['日期'], item['价格']]) })
+      productList.value.push({ name: v.sheetName, data: v.rows.map(item => [item['日期'], item['价格'], item['商店']]) })
     })
   })
 }
@@ -91,6 +96,9 @@ const updateChart = async () => {
     if (!chartInstance) {
       chartInstance = echarts.init(document.getElementById('priceTrendChart'));
     }
+    const xData = productData.map(item => new Date(item[0]).toLocaleDateString())  // 日期
+    const yData = productData.map(item => item[1])  // 价格
+    const storeData = productData.map(item => item[2])  // 商店
     const option = {
       title: {
         text: `${selectedProduct.value} 价格波动趋势`,
@@ -100,7 +108,18 @@ const updateChart = async () => {
         },
       },
       tooltip: {
-        trigger: 'axis'
+        trigger: 'axis',
+        formatter: (params) => {
+          // 这里可以定制 Tooltip 的内容
+          const index = params[0].dataIndex;
+          return `
+            <div>
+              <strong>日期:</strong> ${xData[index]}<br />
+              <strong>价格:</strong> ${yData[index]}<br />
+              <strong>商店:</strong> ${storeData[index] || '未知'}
+            </div>
+          `;
+        },
       },
       grid: {
         left: '5%',
@@ -110,14 +129,14 @@ const updateChart = async () => {
       },
       xAxis: {
         type: 'category',
-        data: productData.map(item => new Date(item[0]).toLocaleString())  // 日期
+        data: xData  // 日期
       },
       yAxis: {
         type: 'value'
       },
       series: [
         {
-          data: productData.map(item => item[1]),  // 价格
+          data: yData,  // 价格
           type: 'line',
           smooth: true,
           areaStyle: {}, // 添加渐变填充
@@ -133,8 +152,17 @@ const resizeHandler = () => {
     chartInstance.resize();
   }
 };
-
+const fetchStores = async () => {
+  try {
+    const response = await fetch('http://localhost:3000/api/get-stores');
+    const data = await response.json();
+    storeList.value = data.stores;
+  } catch (error) {
+    console.error('获取商店列表失败:', error.message);
+  }
+};
 onMounted(() => {
+  fetchStores();
   window.addEventListener('resize', resizeHandler);
   // 获取已有的商品和价格数据
   getExistingData();

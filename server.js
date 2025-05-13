@@ -7,10 +7,10 @@ const app = express();
 const port = 3000;
 let workbook = null;
 // 允许来自 http://localhost:5173 的请求
-// app.use(cors({
-//   origin: 'http://localhost:5173',  // 或者可以使用 '*' 允许所有域
-//   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-// }));
+app.use(cors({
+  origin: 'http://localhost:5173',  // 或者可以使用 '*' 允许所有域
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+}));
 // 提供静态文件服务
 const filePath = path.join(__dirname, 'dist/商品价格记录.xlsx');
 app.use(express.static(path.join(__dirname, 'dist')));
@@ -68,6 +68,33 @@ app.post('/api/add-row', async (req, res) => {
 
     await workbook.xlsx.writeFile(filePath);
     res.send('Row added successfully');
+  }
+});
+// 获取所有历史商店名称
+app.get('/api/get-stores', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+
+    const storeSet = new Set();
+    workbook.eachSheet((worksheet, sheetId) => {
+      if (worksheet.name === '使用说明') {
+        return;
+      }
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) { // 跳过标题行
+          const storeName = row.getCell(3).value;
+          if (storeName) {
+            storeSet.add(storeName);
+          }
+        }
+      });
+    });
+
+    res.status(200).json({ stores: Array.from(storeSet) });
+  } catch (error) {
+    console.error('读取商店名称失败:', error.message);
+    res.status(500).json({ message: '读取商店名称失败' });
   }
 });
 
