@@ -23,7 +23,7 @@
           </el-form-item>
 
           <el-form-item label="商店">
-            <el-select v-model="storeName" placeholder="请选择或输入商店" filterable allow-create>
+            <el-select v-model="storeName" placeholder="请选择或输入商店" filterable allow-create @change="onSelect">
               <el-option v-for="(store, index) in storeList" :key="index" :label="store" :value="store" />
             </el-select>
           </el-form-item>
@@ -50,6 +50,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
+import { getStores } from './db';
 
 const productName = ref('');
 const priceDate = ref('');
@@ -154,9 +155,7 @@ const resizeHandler = () => {
 };
 const fetchStores = async () => {
   try {
-    const response = await fetch('/api/get-stores');
-    const data = await response.json();
-    storeList.value = data.stores;
+    storeList.value = await getStores()
   } catch (error) {
     console.error('获取商店列表失败:', error.message);
   }
