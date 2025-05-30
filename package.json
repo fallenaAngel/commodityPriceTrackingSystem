@@ -2,6 +2,7 @@
   "name": "commoditypricetrackingsystem",
   "private": true,
   "version": "0.0.0",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -9,6 +10,7 @@
     "serve": "concurrently \"vite\" \"node server.js\""
   },
   "dependencies": {
+    "@capacitor/android": "^7.2.0",
     "@capacitor/cli": "^7.2.0",
     "@capacitor/core": "^7.2.0",
     "concurrently": "^9.1.2",
