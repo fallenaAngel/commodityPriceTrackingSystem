@@ -8,22 +8,22 @@
 
     <el-row class="form-section" justify="center">
       <el-col :span="24">
-        <h2>添加商品价格记录</h2>
-        <el-form label-width="90px" class="form">
-          <el-form-item label="商品名称">
-            <el-input v-model="productName" placeholder="请输入商品名称" />
+        <h2>添加商品价格记录 <el-button type="primary" @click="onExport">导出</el-button></h2>
+        <el-form ref="productForm" :model="productFormModel" :rules="productFormRules" label-width="90px" class="form">
+          <el-form-item label="商品名称" prop="productName">
+            <el-input v-model="productFormModel.productName" placeholder="请输入商品名称" />
           </el-form-item>
 
-          <el-form-item label="日期">
-            <el-date-picker v-model="priceDate" type="date" placeholder="选择日期" />
+          <el-form-item label="日期" prop="priceDate">
+            <el-date-picker v-model="productFormModel.priceDate" type="date" placeholder="选择日期" />
           </el-form-item>
 
-          <el-form-item label="价格">
-            <el-input v-model="productPrice" type="number" placeholder="请输入价格" />
+          <el-form-item label="价格" prop="productPrice">
+            <el-input v-model="productFormModel.productPrice" type="number" placeholder="请输入价格" />
           </el-form-item>
 
-          <el-form-item label="商店">
-            <el-select v-model="storeName" placeholder="请选择或输入商店" filterable allow-create @change="onSelect">
+          <el-form-item label="商店" prop="storeName">
+            <el-select v-model="productFormModel.storeName" placeholder="请选择或输入商店" filterable allow-create>
               <el-option v-for="(store, index) in storeList" :key="index" :label="store" :value="store" />
             </el-select>
           </el-form-item>
@@ -38,7 +38,7 @@
         <h2 class="chart-title">商品价格波动趋势</h2>
         <!-- 商品选择 -->
         <el-select v-model="selectedProduct" placeholder="选择商品" class="product-select" @change="updateChart">
-          <el-option v-for="item in productList" :key="item.name" :label="item.name" :value="item.name" />
+          <el-option v-for="(store, index) in productNames" :key="index" :label="store" :value="store" />
         </el-select>
         <div id="priceTrendChart" class="chart-container"></div>
       </el-col>
@@ -47,59 +47,73 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
-import { getStores } from './db';
+import { getStores, getStoresProductNames, addPriceRecord, getAllPriceRecords } from './db.js';
+import {exportToExcel} from './exportExcel.js'
 
-const productName = ref('');
-const priceDate = ref('');
-const productPrice = ref(null);
-const storeName = ref('');
-const storeList = ref([]); // 存储所有历史输入的商店名称
-const selectedProduct = ref('');  // 选择的商品
-const productList = ref([]);
+// form ref
+const productForm = ref(null)
+const productFormModel = reactive({
+  productName: '',
+  priceDate: '',
+  productPrice: null,
+  storeName: '',
+})
+const productFormRules = reactive({
+  productName: {
+    required: true, message: '请输入商品名称', trigger: 'blur'
+  },
+  priceDate: {
+    required: true, message: '选择日期', trigger: 'blur'
+  },
+  productPrice: {
+    required: true, message: '请输入价格', trigger: 'blur'
+  },
+  storeName: {
+    required: true, message: '请选择或输入商店', trigger: 'blur'
+  },
+})
+// 存储所有历史输入的商店名称
+const storeList = ref([]);
+// 存储所有历史输入的商品名称
+const productNames = ref([]);
+// 选择的商品
+const selectedProduct = ref('');
 let chartInstance = null;
 
+const resetForm = () => {
+  if (!productForm.value) return
+  productForm.value.resetFields()
+}
+// 保存本次填报数据
 const saveRecord = async () => {
-  fetch('/api/add-row', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productName: productName.value, priceDate: priceDate.value, productPrice: productPrice.value, storeName: storeName.value })
-  }).then(data => {
-    if (data.ok) {
-      // 清空输入框
-      productName.value = '';
-      priceDate.value = '';
-      productPrice.value = null;
-      storeName.value = '';
-      // 提示新增成功
+  if (!productForm.value) return
+  await productForm.value.validate(async (valid, fields) => {
+    if (valid) {
+      await addPriceRecord({ ...productFormModel, id: new Date().getTime() })
+      resetForm()
       ElMessage.success('新增成功');
       // 刷新商店列表
       fetchStores();
+    } else {
+      console.error('校验失败：', fields)
     }
   })
 };
 
-const getExistingData = async () => {
-  fetch('/api/read-excel').then(response => response.json()).then(data => {
-    data.data.forEach(v => {
-      if (productList.value.some(item => item.name === v.sheetName)) return;
-      productList.value.push({ name: v.sheetName, data: v.rows.map(item => [item['日期'], item['价格'], item['商店']]) })
-    })
-  })
-}
 const updateChart = async () => {
   if (!selectedProduct.value) return;
-  await getExistingData();
-  const productData = productList.value.find(item => item.name === selectedProduct.value)?.data;
-  if (productData) {
+  const allData = await getAllPriceRecords()
+  const productData = allData.filter(item => item.productName === selectedProduct.value);
+  if (productData.length) {
     if (!chartInstance) {
       chartInstance = echarts.init(document.getElementById('priceTrendChart'));
     }
-    const xData = productData.map(item => new Date(item[0]).toLocaleDateString())  // 日期
-    const yData = productData.map(item => item[1])  // 价格
-    const storeData = productData.map(item => item[2])  // 商店
+    const xData = productData.map(item => new Date(item.priceDate).toLocaleDateString())  // 日期
+    const yData = productData.map(item => item.productPrice)  // 价格
+    const storeData = productData.map(item => item.storeName)  // 商店
     const option = {
       title: {
         text: `${selectedProduct.value} 价格波动趋势`,
@@ -153,6 +167,7 @@ const resizeHandler = () => {
     chartInstance.resize();
   }
 };
+// 获取可选商店数据
 const fetchStores = async () => {
   try {
     storeList.value = await getStores()
@@ -160,11 +175,23 @@ const fetchStores = async () => {
     console.error('获取商店列表失败:', error.message);
   }
 };
+// 获取所有商品名称数据
+const fetchNamesData = async () => {
+  try {
+    productNames.value = await getStoresProductNames()
+  } catch (error) {
+    console.error('获取商品名称数据失败：', error);
+    
+  }
+}
+// 导出
+const onExport = async () => {
+  await exportToExcel()
+}
 onMounted(() => {
   fetchStores();
+  fetchNamesData();
   window.addEventListener('resize', resizeHandler);
-  // 获取已有的商品和价格数据
-  getExistingData();
 });
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeHandler);
@@ -214,7 +241,8 @@ onBeforeUnmount(() => {
 .chart-container {
   width: 100%;
   height: 400px;
-  max-height: 70vh;/* 限制最大高度 */
+  max-height: 70vh;
+  /* 限制最大高度 */
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -314,4 +342,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

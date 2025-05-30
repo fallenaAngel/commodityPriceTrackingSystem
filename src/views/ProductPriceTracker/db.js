@@ -30,3 +30,9 @@ export async function getStores() {
   const storeSet = new Set(records.map(r => r.storeName));
   return Array.from(storeSet);
 }
+// 获取所有商品名称并去重复
+export async function getStoresProductNames() {
+  const records = await getAllPriceRecords();
+  const storeSet = new Set(records.map(r => r.productName));
+  return Array.from(storeSet);
+}
