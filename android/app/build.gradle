@@ -16,9 +16,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file('/Users/lidingding/Documents/androidstudio/app-release.keystore') // keystore 文件路径
+            storePassword "ldd1126" // keystore 密码
+            keyAlias "mytestapp" // 密钥别名
+            keyPassword "ldd1126" // 密钥密码
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
+            signingConfig signingConfigs.release
+            minifyEnabled false  // 是否启用代码压缩（Proguard）
+            shrinkResources false  // 是否减少资源文件
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
